@@ -8,41 +8,46 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { login } from "@/lib/api";
+import { register } from "@/lib/api";
 
-const loginSchema = z.object({
+const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
-type LoginForm = z.infer<typeof loginSchema>;
+type SignupForm = z.infer<typeof signupSchema>;
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<SignupForm>({
+    resolver: zodResolver(signupSchema),
     defaultValues: {
       email: "",
       password: "",
+      confirmPassword: "",
     },
   });
 
-  const onSubmit = async (data: LoginForm) => {
+  const onSubmit = async (data: SignupForm) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password);
+      await register(data.email, data.password);
       toast({
-        title: "Welcome back!",
-        description: "You have been successfully logged in.",
+        title: "Account created!",
+        description: "You have been successfully registered and logged in.",
       });
       setLocation("/");
     } catch (error: any) {
       toast({
-        title: "Login failed",
-        description: error.message || "Please check your credentials and try again.",
+        title: "Signup failed",
+        description: error.message || "Please check your information and try again.",
         variant: "destructive",
       });
     } finally {
@@ -63,7 +68,7 @@ export default function LoginPage() {
             <h1 className="text-xl font-semibold text-slate-800">Intralog BOM</h1>
           </div>
           <CardTitle className="text-2xl text-center">
-            Welcome back
+            Create account
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -97,23 +102,37 @@ export default function LoginPage() {
                 )}
               />
               
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="••••••••" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
               <Button 
                 type="submit" 
                 className="w-full bg-primary-600 hover:bg-primary-700"
                 disabled={isLoading}
               >
-                {isLoading ? "Logging in..." : "Log In"}
+                {isLoading ? "Creating account..." : "Sign Up"}
               </Button>
             </form>
           </Form>
           
           <div className="mt-4 text-center">
-            <Link href="/signup">
+            <Link href="/login">
               <Button 
                 variant="link" 
                 className="text-primary-600 hover:text-primary-700"
               >
-                Need an account? Sign up
+                Already have an account? Log in
               </Button>
             </Link>
           </div>
