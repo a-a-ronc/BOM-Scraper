@@ -264,7 +264,7 @@ export class DatabaseStorage implements IStorage {
   async createProject(insertProject: InsertProject): Promise<Project> {
     const [project] = await db
       .insert(projects)
-      .values([insertProject])
+      .values(insertProject as any)
       .returning();
     return project;
   }
