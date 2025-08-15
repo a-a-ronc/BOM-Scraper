@@ -6,12 +6,22 @@ interface PDFData {
   text: string;
 }
 
+interface BOMItem {
+  family: string;
+  partCode: string;
+  description: string;
+  quantity: number;
+  uom: string; // unit of measure
+  notes?: string;
+}
+
 export interface ParsedDocument {
   customer?: string;
   drawingNo?: string;
   projectName?: string;
   address?: string;
   pageCount?: number;
+  configurations?: { [key: string]: ConfigurationBOM };
   metadata?: {
     // Basic specs
     palletSize?: string;
@@ -31,6 +41,17 @@ export interface ParsedDocument {
   };
 }
 
+interface ConfigurationBOM {
+  configId: string;
+  bays: number;
+  levels: number;
+  items: BOMItem[];
+  totalLoadBeams: number;
+  totalWireDecks: number;
+  totalAnchors: number;
+  totalUprights: number;
+}
+
 export async function parseDocument(filePath: string): Promise<ParsedDocument> {
   try {
     // Read the PDF file
@@ -44,8 +65,9 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
     // Parse PDF content with proper error handling
     let pdfData: PDFData;
     try {
-      // Use require instead of dynamic import to avoid pdf-parse debug mode issues
-      const pdfParse = require('pdf-parse');
+      // Import pdf-parse dynamically but handle it properly
+      const pdfParseModule = await import('pdf-parse');
+      const pdfParse = pdfParseModule.default;
       pdfData = await pdfParse(pdfBuffer);
       console.log('PDF parsing successful, text length:', pdfData.text.length);
     } catch (parseError: any) {
@@ -213,6 +235,10 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
       clearHeight = clearHeightMatch[1];
     }
 
+    // Extract BOM information
+    const configurations = extractBOMConfigurations(textContent);
+    result.configurations = configurations;
+
     // Extract views
     const views = [];
     if (/(?:TOP|PLAN)\s*VIEW/i.test(textContent)) views.push('TOP VIEW');
@@ -258,4 +284,131 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
     console.error('Error parsing document:', error);
     throw new Error('Failed to parse document');
   }
+}
+
+function extractBOMConfigurations(textContent: string): { [key: string]: ConfigurationBOM } {
+  const configurations: { [key: string]: ConfigurationBOM } = {};
+  
+  // Extract rack configurations (R1, R2, T1, T2, etc.)
+  const configMatches = textContent.match(/\b[RT]\d+\b/g) || [];
+  const uniqueConfigs = Array.from(new Set(configMatches));
+  
+  for (const configId of uniqueConfigs) {
+    console.log(`Processing configuration: ${configId}`);
+    
+    // Extract configuration-specific data
+    const config: ConfigurationBOM = {
+      configId,
+      bays: extractBaysForConfig(textContent, configId),
+      levels: extractLevelsForConfig(textContent, configId),
+      items: [],
+      totalLoadBeams: 0,
+      totalWireDecks: 0,
+      totalAnchors: 0,
+      totalUprights: 0
+    };
+    
+    // Calculate BOM items based on extracted data
+    calculateBOMItems(config);
+    
+    configurations[configId] = config;
+  }
+  
+  // If no configurations found, create a default "MAIN" configuration
+  if (Object.keys(configurations).length === 0) {
+    const mainConfig = createDefaultConfiguration(textContent);
+    configurations['MAIN'] = mainConfig;
+  }
+  
+  return configurations;
+}
+
+function extractBaysForConfig(textContent: string, configId: string): number {
+  // Look for bay count near the configuration ID
+  const configPattern = new RegExp(`${configId}.*?(\\d+)\\s*(?:bay|bays)`, 'gi');
+  const match = configPattern.exec(textContent);
+  if (match) {
+    return parseInt(match[1]);
+  }
+  
+  // Look for general bay count
+  const bayMatch = textContent.match(/(\d+)\s*(?:bay|bays)/gi);
+  if (bayMatch) {
+    return parseInt(bayMatch[0].match(/\d+/)?.[0] || '1');
+  }
+  
+  return 1; // Default fallback
+}
+
+function extractLevelsForConfig(textContent: string, configId: string): number {
+  // Count beam elevations to determine levels
+  const elevationMatches = textContent.match(/\d+'-\d+".*(?:beam|level)/gi) || [];
+  const elevationHeights = elevationMatches.map(m => m.match(/\d+'-\d+"/)?.[0]);
+  const uniqueElevations = Array.from(new Set(elevationHeights)).filter(Boolean);
+  
+  return Math.max(uniqueElevations.length, 1); // At least 1 level
+}
+
+function createDefaultConfiguration(textContent: string): ConfigurationBOM {
+  const config: ConfigurationBOM = {
+    configId: 'MAIN',
+    bays: extractBaysForConfig(textContent, 'MAIN'),
+    levels: extractLevelsForConfig(textContent, 'MAIN'),
+    items: [],
+    totalLoadBeams: 0,
+    totalWireDecks: 0,
+    totalAnchors: 0,
+    totalUprights: 0
+  };
+  
+  calculateBOMItems(config);
+  return config;
+}
+
+function calculateBOMItems(config: ConfigurationBOM): void {
+  const { bays, levels } = config;
+  
+  // Calculate quantities based on standard rack formulas
+  config.totalUprights = bays + 1; // uprights = bays + 1
+  config.totalLoadBeams = bays * levels * 2; // 2 beams per level per bay
+  config.totalWireDecks = bays * levels; // 1 deck per level per bay
+  config.totalAnchors = config.totalUprights * 4; // 4 anchors per upright (2 per footplate)
+  
+  // Create BOM items
+  config.items = [
+    {
+      family: 'Uprights',
+      partCode: 'UPRIGHT-STD',
+      description: 'Standard Upright',
+      quantity: config.totalUprights,
+      uom: 'EA',
+      notes: 'Calculated: bays + 1'
+    },
+    {
+      family: 'Load Beams',
+      partCode: 'BEAM-STD',
+      description: 'Standard Load Beam',
+      quantity: config.totalLoadBeams,
+      uom: 'EA',
+      notes: 'Calculated: bays × levels × 2'
+    },
+    {
+      family: 'Wire Decks',
+      partCode: 'DECK-WIRE',
+      description: 'Wire Deck Panel',
+      quantity: config.totalWireDecks,
+      uom: 'EA',
+      notes: 'Calculated: bays × levels'
+    },
+    {
+      family: 'Anchors',
+      partCode: 'ANCHOR-BOLT',
+      description: 'Anchor Bolt',
+      quantity: config.totalAnchors,
+      uom: 'EA',
+      notes: 'Calculated: uprights × 4'
+    }
+  ];
+  
+  console.log(`Configuration ${config.configId}: ${bays} bays, ${levels} levels, ${config.totalLoadBeams} beams, ${config.totalWireDecks} decks, ${config.totalAnchors} anchors`);
 }

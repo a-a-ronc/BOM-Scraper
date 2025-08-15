@@ -19,10 +19,12 @@ export default function MetadataPanel({ project }: MetadataPanelProps) {
   });
 
   const metadata = project.metadata || {};
+  const configurations = project.configurations || {};
   const hasMetadata = metadata.palletSize || metadata.loadCapacity || metadata.clearHeight || 
                       metadata.totalBays || metadata.totalEndRowUprights || metadata.topOfLoadBeamElevations ||
                       metadata.depthOfLoadBeam || metadata.productLoad || metadata.productDimensions ||
                       metadata.topOfProductElevations;
+  const hasConfigurations = Object.keys(configurations).length > 0;
 
   return (
     <Card>
@@ -207,6 +209,84 @@ export default function MetadataPanel({ project }: MetadataPanelProps) {
                       {view}
                     </Badge>
                   ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Bill of Materials */}
+        {hasConfigurations && (
+          <div className="border-t border-slate-200 pt-4">
+            <h4 className="text-sm font-medium text-slate-900 mb-3">Bill of Materials</h4>
+            
+            {Object.entries(configurations).map(([configId, config]: [string, any]) => (
+              <div key={configId} className="mb-6">
+                <h5 className="text-sm font-medium text-slate-800 mb-2 flex items-center gap-2">
+                  Configuration: {configId}
+                  <Badge variant="outline" className="text-xs">
+                    {config.bays} bays × {config.levels} levels
+                  </Badge>
+                </h5>
+                
+                <div className="bg-slate-50 rounded-md p-3">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left py-1 px-2 font-medium text-slate-600">Family</th>
+                          <th className="text-left py-1 px-2 font-medium text-slate-600">Description</th>
+                          <th className="text-right py-1 px-2 font-medium text-slate-600">Qty</th>
+                          <th className="text-center py-1 px-2 font-medium text-slate-600">UoM</th>
+                          <th className="text-left py-1 px-2 font-medium text-slate-600">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {config.items && config.items.map((item: any, index: number) => (
+                          <tr key={index} className="border-b border-slate-100">
+                            <td className="py-1 px-2 font-mono text-slate-700">{item.family}</td>
+                            <td className="py-1 px-2 text-slate-700">{item.description}</td>
+                            <td className="py-1 px-2 text-right font-mono text-slate-800">{item.quantity}</td>
+                            <td className="py-1 px-2 text-center text-slate-600">{item.uom}</td>
+                            <td className="py-1 px-2 text-slate-500 text-xs">{item.notes || ''}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {/* Totals Summary */}
+            {Object.keys(configurations).length > 1 && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-md">
+                <h5 className="text-sm font-medium text-blue-900 mb-2">Total Quantities (All Configurations)</h5>
+                <div className="grid grid-cols-4 gap-3 text-sm">
+                  <div className="text-center">
+                    <div className="font-mono text-lg text-blue-800">
+                      {Object.values(configurations).reduce((sum: number, config: any) => sum + (config.totalLoadBeams || 0), 0)}
+                    </div>
+                    <div className="text-xs text-blue-600">Load Beams</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-mono text-lg text-blue-800">
+                      {Object.values(configurations).reduce((sum: number, config: any) => sum + (config.totalWireDecks || 0), 0)}
+                    </div>
+                    <div className="text-xs text-blue-600">Wire Decks</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-mono text-lg text-blue-800">
+                      {Object.values(configurations).reduce((sum: number, config: any) => sum + (config.totalAnchors || 0), 0)}
+                    </div>
+                    <div className="text-xs text-blue-600">Anchors</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-mono text-lg text-blue-800">
+                      {Object.values(configurations).reduce((sum: number, config: any) => sum + (config.totalUprights || 0), 0)}
+                    </div>
+                    <div className="text-xs text-blue-600">Uprights</div>
+                  </div>
                 </div>
               </div>
             )}
