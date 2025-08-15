@@ -1,0 +1,103 @@
+{
+  "vendors": {
+    "interlake": {
+      "name": "Interlake Mecalux",
+      "frame": {
+        "sku": "IM-FR-{height}-{depth}",
+        "desc": "Interlake Frame {height}\"×{depth}\"",
+        "unitPrice": 285.50
+      },
+      "beam": {
+        "sku": "IM-BM-{len}-{profile}",
+        "desc": "Interlake Beam {len}\" {profile}",
+        "unitPrice": 42.75
+      },
+      "wireDeck": {
+        "sku": "IM-WD-{width}-{depth}",
+        "desc": "Interlake Wire Deck {width}\"×{depth}\" Galvanized",
+        "unitPrice": 35.25
+      },
+      "anchor": {
+        "sku": "IM-ANC-{size}-{length}",
+        "desc": "Interlake Anchor Bolt {size}\" × {length}\"",
+        "unitPrice": 8.50
+      },
+      "palletSupport": {
+        "sku": "IM-PS-{length}",
+        "desc": "Interlake Pallet Support Bar {length}\"",
+        "unitPrice": 12.25
+      },
+      "rowSpacer": {
+        "sku": "IM-RS-{length}",
+        "desc": "Interlake Row Spacer {length}\" Galvanized",
+        "unitPrice": 28.75
+      }
+    },
+    "hannibal": {
+      "name": "Hannibal",
+      "frame": {
+        "sku": "HAN-FR-{height}-{depth}",
+        "desc": "Hannibal Frame {height}\"×{depth}\"",
+        "unitPrice": 275.00
+      },
+      "beam": {
+        "sku": "HAN-BM-{len}-{profile}",
+        "desc": "Hannibal Beam {len}\" {profile}",
+        "unitPrice": 39.50
+      },
+      "wireDeck": {
+        "sku": "HAN-WD-{width}-{depth}",
+        "desc": "Hannibal Wire Deck {width}\"×{depth}\" Powder Coated",
+        "unitPrice": 32.75
+      },
+      "anchor": {
+        "sku": "HAN-ANC-{size}-{length}",
+        "desc": "Hannibal Anchor Bolt {size}\" × {length}\"",
+        "unitPrice": 7.75
+      },
+      "palletSupport": {
+        "sku": "HAN-PS-{length}",
+        "desc": "Hannibal Pallet Support Bar {length}\"",
+        "unitPrice": 11.50
+      },
+      "rowSpacer": {
+        "sku": "HAN-RS-{length}",
+        "desc": "Hannibal Row Spacer {length}\" Galvanized",
+        "unitPrice": 26.25
+      }
+    },
+    "stow": {
+      "name": "Stow",
+      "frame": {
+        "sku": "STW-FR-{height}-{depth}",
+        "desc": "Stow Frame {height}\"×{depth}\"",
+        "unitPrice": 295.75
+      },
+      "beam": {
+        "sku": "STW-BM-{len}-{profile}",
+        "desc": "Stow Beam {len}\" {profile}",
+        "unitPrice": 45.25
+      },
+      "wireDeck": {
+        "sku": "STW-WD-{width}-{depth}",
+        "desc": "Stow Wire Deck {width}\"×{depth}\" Heavy Duty",
+        "unitPrice": 38.50
+      },
+      "anchor": {
+        "sku": "STW-ANC-{size}-{length}",
+        "desc": "Stow Anchor Bolt {size}\" × {length}\"",
+        "unitPrice": 9.25
+      },
+      "palletSupport": {
+        "sku": "STW-PS-{length}",
+        "desc": "Stow Pallet Support Bar {length}\"",
+        "unitPrice": 13.75
+      },
+      "rowSpacer": {
+        "sku": "STW-RS-{length}",
+        "desc": "Stow Row Spacer {length}\" Stainless Steel",
+        "unitPrice": 32.50
+      }
+    }
+  }
+}

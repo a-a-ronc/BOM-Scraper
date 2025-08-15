@@ -1,0 +1,24 @@
+{
+  "defaults": {
+    "anchors_per_footplate": 2,
+    "deck_module_width_in": 48,
+    "row_spacer_spacing_ft": 8
+  },
+  "overrides": {
+    "heavy_load": {
+      "triggers": [
+        "pallet_weight_lb >= 1500",
+        "seismic_zone >= 3"
+      ],
+      "set": {
+        "anchors_per_footplate": 4
+      }
+    }
+  },
+  "calculations": {
+    "frames": "bays + 1",
+    "beams": "bays * levels * 2",
+    "wire_decks": "bays * levels * ceil(beam_length_in / deck_module_width_in)",
+    "anchors": "uprights * anchors_per_footplate"
+  }
+}
