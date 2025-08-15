@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import * as pdfParse from 'pdf-parse';
 
 // Simple type interface for PDF parse result
 interface PDFData {
@@ -31,7 +30,8 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
     // Read the PDF file as buffer
     const pdfBuffer = fs.readFileSync(filePath);
     
-    // Parse PDF content
+    // Parse PDF content using dynamic import to avoid startup issues
+    const pdfParse = (await import('pdf-parse')).default;
     const pdfData = await (pdfParse as any)(pdfBuffer) as PDFData;
     const textContent = pdfData.text;
     

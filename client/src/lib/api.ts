@@ -66,6 +66,11 @@ export async function uploadFile(projectId: string, file: File): Promise<any> {
   return response.json();
 }
 
+export async function deleteFile(projectId: string, fileId: string): Promise<any> {
+  const response = await apiRequest("DELETE", `/api/projects/${projectId}/files/${fileId}`);
+  return response.json();
+}
+
 export async function reparseProject(projectId: string): Promise<any> {
   const response = await apiRequest("POST", `/api/projects/${projectId}/parse`);
   return response.json();

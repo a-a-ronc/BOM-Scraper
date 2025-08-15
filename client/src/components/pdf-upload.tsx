@@ -4,9 +4,9 @@ import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { uploadFile } from "@/lib/api";
+import { uploadFile, deleteFile, reparseProject } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
-import { Upload, Eye, FileText } from "lucide-react";
+import { Upload, Eye, FileText, Trash2, RefreshCw, Zap } from "lucide-react";
 
 interface PdfUploadProps {
   projectId: string;
@@ -29,6 +29,42 @@ export default function PdfUpload({ projectId, files }: PdfUploadProps) {
       toast({
         title: "Upload failed",
         description: error.message || "Failed to upload file",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteFileMutation = useMutation({
+    mutationFn: (fileId: string) => deleteFile(projectId, fileId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
+      toast({
+        title: "File deleted!",
+        description: "PDF file has been removed successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete failed",
+        description: error.message || "Failed to delete file",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const reparseProjectMutation = useMutation({
+    mutationFn: () => reparseProject(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
+      toast({
+        title: "Data extracted!",
+        description: "PDF data has been extracted and updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Extraction failed",
+        description: error.message || "Failed to extract data from PDFs",
         variant: "destructive",
       });
     },
@@ -92,9 +128,21 @@ export default function PdfUpload({ projectId, files }: PdfUploadProps) {
                     Page {file.pageCount || 1}/1
                   </div>
                 </div>
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
                   <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
                     <Eye className="w-3 h-3" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteFileMutation.mutate(file.id);
+                    }}
+                    disabled={deleteFileMutation.isPending}
+                  >
+                    <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
               </div>
@@ -103,9 +151,20 @@ export default function PdfUpload({ projectId, files }: PdfUploadProps) {
         )}
 
         {files.length > 0 && (
-          <div className="text-center">
+          <div className="flex items-center justify-center space-x-3 pt-4 border-t border-slate-200">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => reparseProjectMutation.mutate()}
+              disabled={reparseProjectMutation.isPending}
+              className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+            >
+              <Zap className={`w-4 h-4 mr-2 ${reparseProjectMutation.isPending ? 'animate-pulse' : ''}`} />
+              {reparseProjectMutation.isPending ? 'Extracting Data...' : 'Extract Data from PDFs'}
+            </Button>
             <Button variant="link" size="sm">
-              View Full Documents
+              <Eye className="w-4 h-4 mr-1" />
+              View Documents
             </Button>
           </div>
         )}

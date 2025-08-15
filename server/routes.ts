@@ -161,7 +161,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const projectFile = await storage.createProjectFile({
         projectId: project.id,
-        filename: req.file.originalname,
+        filename: req.file.originalname, // Store the original filename for display
+        filePath: req.file.path, // Store the filesystem path for parsing
         fileType: req.file.mimetype,
         pageCount: parsedData.pageCount || 1,
         parsedData,
@@ -188,6 +189,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete project file
+  app.delete("/api/projects/:id/files/:fileId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project || project.createdBy !== req.session.userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const file = await storage.getProjectFile(req.params.fileId);
+      if (!file || file.projectId !== project.id) {
+        return res.status(404).json({ message: "File not found" });
+      }
+
+      await storage.deleteProjectFile(req.params.fileId);
+      res.json({ message: "File deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting file" });
+    }
+  });
+
   app.post("/api/projects/:id/parse", requireAuth, async (req: Request, res: Response) => {
     try {
       const project = await storage.getProject(req.params.id);
@@ -200,7 +221,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Re-parse all files
       for (const file of files) {
-        const filePath = path.join('uploads', file.filename);
+        // Use the stored filepath for parsing, fallback to filename if no filePath
+        const filePath = (file as any).filePath || file.filename;
         const parsedData = await parseDocument(filePath);
         combinedParsedData = { ...combinedParsedData, ...parsedData };
         

@@ -26,8 +26,10 @@ export interface IStorage {
 
   // Project file operations
   getProjectFiles(projectId: string): Promise<ProjectFile[]>;
+  getProjectFile(id: string): Promise<ProjectFile | undefined>;
   createProjectFile(file: InsertProjectFile): Promise<ProjectFile>;
   updateProjectFile(id: string, updates: Partial<ProjectFile>): Promise<ProjectFile>;
+  deleteProjectFile(id: string): Promise<void>;
 
   // BOM operations
   getBomItemsByProject(projectId: string, vendor?: string): Promise<BomItem[]>;
@@ -147,12 +149,17 @@ export class MemStorage implements IStorage {
       id,
       uploadedAt: new Date(),
       projectId: insertFile.projectId || null,
+      filePath: (insertFile as any).filePath || null,
       fileType: insertFile.fileType || null,
       pageCount: insertFile.pageCount || null,
       parsedData: insertFile.parsedData || null,
     };
     this.projectFiles.set(id, file);
     return file;
+  }
+
+  async getProjectFile(id: string): Promise<ProjectFile | undefined> {
+    return this.projectFiles.get(id);
   }
 
   async updateProjectFile(id: string, updates: Partial<ProjectFile>): Promise<ProjectFile> {
@@ -163,6 +170,10 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...updates };
     this.projectFiles.set(id, updated);
     return updated;
+  }
+
+  async deleteProjectFile(id: string): Promise<void> {
+    this.projectFiles.delete(id);
   }
 
   async getBomItemsByProject(projectId: string, vendor?: string): Promise<BomItem[]> {

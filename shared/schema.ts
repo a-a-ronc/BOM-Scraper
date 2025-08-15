@@ -32,6 +32,7 @@ export const projectFiles = pgTable("project_files", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").references(() => projects.id, { onDelete: "cascade" }),
   filename: text("filename").notNull(),
+  filePath: text("file_path"), // Filesystem path for processing
   fileType: text("file_type"),
   pageCount: integer("page_count"),
   parsedData: json("parsed_data"),
