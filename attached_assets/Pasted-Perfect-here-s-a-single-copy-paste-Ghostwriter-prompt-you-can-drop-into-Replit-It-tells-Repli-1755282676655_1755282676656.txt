@@ -1,0 +1,242 @@
+Perfect — here’s a single **copy‑paste Ghostwriter prompt** you can drop into Replit. It tells Replit to scaffold the full stack, wire the ChatGPT API as the light “agent,” and include parsing + rules + vendor mapping with minimal paid usage. I included example strings from your drawings with proper source markers so the generated tests/examples stay grounded:&#x20;
+
+---
+
+**REPLIT GHOSTWRITER PROMPT — generate repo**
+
+Act as a senior full‑stack engineer. Create a runnable monorepo for **“Intralog Prelim → BOM”** with a Python FastAPI backend and a React (Vite + TS) frontend. Use **OpenAI ChatGPT API** sparingly as an “agentic” helper for conflict resolution and summarization; keep parsing and math local.
+
+### 0) Goals (MVP)
+
+* Authenticated user uploads **rack drawing PDFs** (top + elevation).
+* System extracts **Project** metadata (name, customer, address, drawing number, revision) and **rack specs** (levels, beam lengths/profiles, pallet dims & load, clear heights).
+* Apply a **rules engine (YAML)** to compute a **Bill of Materials (BOM)** with vendor mapping (Interlake Mecalux, Hannibal, Stow).
+* Show dashboard → Upload → Extract → Build BOM. Export CSV/XLSX.
+* Keep architecture modular so future modules (OneRack prelim, RFQs, Odoo, Painless Permit) are just buttons using same `project_id`.
+
+Use these example strings in sample data/tests (from our PDFs):
+
+* Customer/company: “Falcon Fulfillment”
+* Address: “1065 Conestoga Pkwy, Shepherdsville, KY 40165”
+* Drawing no.: “D-241254-R-180”
+* Views: “TOP VIEW”, “ELEVATION VIEW”
+* Pallet dims & load: `40"x48"x52"`, `1,000 lbs`
+* Heights: `6'-0" Clear`; “35'-4" To Lowest Hanging Truss”
+
+### 1) Stack & libs
+
+* **Backend:** Python 3.11, FastAPI, Uvicorn, SQLModel (SQLite), Pydantic Settings
+* **Parsing:** PyMuPDF (fitz), pdfplumber, PaddleOCR (cpu) or docTR (cpu), OpenCV, regex
+* **Agent:** OpenAI (chat.completions with GPT‑4o‑mini or GPT‑4‑turbo)
+* **BOM/Export:** pyyaml, pandas, openpyxl, numexpr
+* **Auth:** fastapi-users (local email/password)
+* **Frontend:** Vite + React + TS + Tailwind
+
+### 2) File tree
+
+```
+/server
+  main.py
+  settings.py
+  db.py
+  models.py
+  schemas.py
+  deps.py
+  /routers
+    auth.py
+    projects.py
+    bom.py
+    health.py
+  /services
+    parser_pipeline.py
+    /parsing
+      text_extract.py
+      ocr_extract.py
+      dims_extract.py
+      normalize.py
+    /bom
+      rules_engine.py
+      vendor_map.py
+      bom_builder.py
+    /agent
+      agent_openai.py
+  /rules
+    default_rules.yaml
+  /vendors
+    default_vendor_map.yaml
+  /tests
+    test_parsing_examples.py
+/web
+  index.html
+  /src
+    main.tsx
+    App.tsx
+    api.ts
+    /pages
+      Login.tsx
+      Projects.tsx
+      ProjectDetail.tsx
+    /components
+      UploadCard.tsx
+      PdfThumb.tsx
+      ParsedPanel.tsx
+      VendorTabs.tsx
+      BomTable.tsx
+README.md
+.env.sample
+```
+
+### 3) Backend specifics
+
+* **settings.py**: load `OPENAI_API_KEY`, `DATABASE_URL` (sqlite default), CORS.
+* **models.py (SQLModel)**:
+
+  * `User(id, email, password_hash, created_at)`
+  * `Project(id, name, customer, address, drawing_no, revision, metadata_json, created_by, created_at)`
+  * `ProjectFile(id, project_id, filename, page_count, parsed_json, ocr_json, created_at)`
+  * `BomItem(id, project_id, family, part_code, description, uom, qty, vendor, calc_inputs_json)`
+  * `AgentLog(id, project_id, stage, message, details_json, created_at)`
+* **routers**:
+
+  * `POST /auth/register`, `POST /auth/login`
+  * `POST /projects` → multipart upload (one or more PDFs). If it’s the first file, auto‑create Project by parsing title block; otherwise attach to existing via query `project_id`.
+  * `POST /projects/{id}/parse` → run `parser_pipeline.run(id)` (idempotent).
+  * `GET /projects`, `GET /projects/{id}`
+  * `POST /projects/{id}/bom` → body: `{ vendors: ["interlake","hannibal","stow"] }`
+  * `GET /projects/{id}/bom?vendor=interlake` (JSON lines) and `GET /projects/{id}/bom/export?fmt=csv|xlsx`
+  * `GET /healthz`
+* **services/parser\_pipeline.py**:
+
+  * Stage A: `text_extract.extract(pdf_path)` with PyMuPDF/pdfplumber
+  * Stage B: `ocr_extract.ocr_images(pdf_path)` with PaddleOCR for any rasterized pages
+  * Stage C: `dims_extract.parse_dims(text)` → normalize feet/inches (e.g., `6'-0"`, `4'-4"`) and loads (`1,000 lbs`)
+  * Stage D: `normalize.merge_conflicts(a,b)`; when conflicts remain, call `agent_openai.resolve_conflict(context)` to choose + explain; persist an `AgentLog`.
+  * Return a normalized dict:
+
+    ```json
+    {
+      "customer":"Falcon Fulfillment",
+      "address":"1065 Conestoga Pkwy, Shepherdsville, KY 40165",
+      "drawing_no":"D-241254-R-180",
+      "views":["TOP VIEW","ELEVATION VIEW"],
+      "pallet":{"size":"40x48x52","unit_load_lb":1000},
+      "clear_height_in":72,
+      "lowest_truss_in":424
+    }
+    ```
+
+    (values derived from the examples above)
+* **services/bom/rules\_engine.py**:
+
+  * Load YAML → produce context variables (bays, levels, beam\_length\_in, etc.)
+  * Evaluate with `numexpr` in a safe environment
+  * Apply overrides (e.g., anchors per footplate = 4 when heavy/seismic)
+* **services/bom/vendor\_map.py**:
+
+  * Map generic families → vendor SKUs/descriptions by template
+* **services/bom/bom\_builder.py**:
+
+  * Compute frames = `bays + 1`; beams = `bays * levels * 2`; wire\_decks = `bays * levels * ceil(beam_length_in / deck_module_width_in)`; anchors = `uprights * anchors_per_footplate`.
+* **services/agent/agent\_openai.py**:
+
+  * Thin wrapper using `openai` (or `openai>=1.0` SDK) with model `gpt-4o-mini` by default; expose `resolve_conflict(context: dict) -> dict`.
+
+### 4) YAML samples
+
+* **/server/rules/default\_rules.yaml**
+
+```yaml
+defaults:
+  anchors_per_footplate: 2
+  deck_module_width_in: 48
+  row_spacer_spacing_ft: 8
+overrides:
+  heavy_load:
+    triggers:
+      - pallet_weight_lb >= 1500
+      - seismic_zone >= 3
+    set:
+      anchors_per_footplate: 4
+calculations:
+  frames: "bays + 1"
+  beams: "bays * levels * 2"
+  wire_decks: "bays * levels * ceil(beam_length_in / deck_module_width_in)"
+  anchors: "uprights * anchors_per_footplate"
+```
+
+* **/server/vendors/default\_vendor\_map.yaml**
+
+```yaml
+families:
+  frame:
+    vendors:
+      interlake: { sku: "IM-FR-{height}-{depth}", desc: "Interlake Frame {height}x{depth}" }
+      hannibal:  { sku: "HAN-FR-{height}-{depth}", desc: "Hannibal Frame {height}x{depth}" }
+      stow:      { sku: "STW-FR-{height}-{depth}", desc: "Stow Frame {height}x{depth}" }
+  beam:
+    vendors:
+      interlake: { sku: "IM-BM-{len}-{profile}", desc: "Interlake Beam {len}\" {profile}" }
+      hannibal:  { sku: "HAN-BM-{len}-{profile}", desc: "Hannibal Beam {len}\" {profile}" }
+      stow:      { sku: "STW-BM-{len}-{profile}", desc: "Stow Beam {len}\" {profile}" }
+```
+
+### 5) Frontend
+
+* **/web**
+
+  * `Login` → email/password
+  * `Projects` → list with “New Project (Upload PDFs)”
+  * `ProjectDetail`:
+
+    * PDF thumbnails
+    * Parsed metadata panel (editable)
+    * Parse button (re-runs)
+    * Vendor tabs (Interlake, Hannibal, Stow) with **BomTable** and CSV/XLSX export
+* **api.ts**: base URL, typed wrappers for endpoints
+* **UploadCard.tsx**: drag/drop with progress
+
+### 6) Tests
+
+* **/server/tests/test\_parsing\_examples.py**: unit tests asserting that regex/heuristics pull:
+
+  * “Falcon Fulfillment” → `customer`
+  * “1065 Conestoga Pkwy, Shepherdsville, KY 40165” → `address`
+  * “D-241254-R-180” → `drawing_no`
+  * `40"x48"x52"` + `1,000 lbs` → pallet size & load
+  * `6'-0" Clear` → 72 in; `35'-4" To Lowest Hanging Truss` → 424 in
+
+### 7) Commands & run
+
+* **Backend deps**:
+
+  ```
+  pip install fastapi uvicorn sqlmodel pydantic-settings pymupdf pdfplumber paddleocr opencv-python pandas openpyxl numexpr pyyaml openai
+  ```
+* **Frontend scaffold**:
+
+  ```
+  npm create vite@latest web -- --template react-ts
+  cd web && npm i && npm i -D tailwindcss postcss autoprefixer && npx tailwindcss init -p
+  ```
+* **Run**:
+
+  * Backend: `python -m uvicorn server.main:app --reload`
+  * Frontend: `npm run dev` (inside `/web`)
+* **.env.sample**:
+
+  ```
+  OPENAI_API_KEY=sk-...
+  DATABASE_URL=sqlite:///./intralog.db
+  ```
+
+### 8) Quality
+
+* Type hints everywhere, docstrings on service functions, clear TODOs where seismic/OneRack will plug in later.
+* Minimal coupling: parsing → normalized dict → rules engine → BOM → vendor map.
+* Agent usage behind a single function; safe to disable when offline.
+
+Generate all files with workable, minimal code so the app boots, the upload/parse flow runs (with stubbed heuristics + OCR hooks), the rules engine computes basic quantities, vendor tabs render, and CSV export works.
+
+---
+
+That’s it — paste this into Replit’s Ghostwriter “Generate” box and let it scaffold. If you want, I can follow up with a drop‑in regex set tuned to your sample PDFs next.
