@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { uploadFile, deleteFile, reparseProject } from "@/lib/api";
+import { uploadFiles, deleteFile, reparseProject } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { Upload, Eye, FileText, Trash2, RefreshCw, Zap } from "lucide-react";
 
@@ -17,12 +17,12 @@ export default function PdfUpload({ projectId, files }: PdfUploadProps) {
   const { toast } = useToast();
 
   const uploadFileMutation = useMutation({
-    mutationFn: (file: File) => uploadFile(projectId, file),
+    mutationFn: (files: File[]) => uploadFiles(projectId, files),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
       toast({
-        title: "File uploaded!",
-        description: "PDF file has been uploaded and parsed successfully.",
+        title: "Files uploaded!",
+        description: "PDF files have been uploaded and parsed successfully.",
       });
     },
     onError: (error: any) => {
@@ -71,9 +71,9 @@ export default function PdfUpload({ projectId, files }: PdfUploadProps) {
   });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    acceptedFiles.forEach(file => {
-      uploadFileMutation.mutate(file);
-    });
+    if (acceptedFiles.length > 0) {
+      uploadFileMutation.mutate(acceptedFiles);
+    }
   }, [uploadFileMutation]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

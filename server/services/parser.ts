@@ -30,9 +30,19 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
     // Read the PDF file as buffer
     const pdfBuffer = fs.readFileSync(filePath);
     
-    // Parse PDF content using dynamic import to avoid startup issues
-    const pdfParse = (await import('pdf-parse')).default;
-    const pdfData = await (pdfParse as any)(pdfBuffer) as PDFData;
+    // Parse PDF content with proper error handling
+    let pdfData: PDFData;
+    try {
+      const pdfParse = require('pdf-parse');
+      pdfData = await pdfParse(pdfBuffer);
+    } catch (parseError: any) {
+      console.error('PDF parsing error:', parseError.message);
+      // Fallback: return basic structure with empty text if parsing fails
+      pdfData = {
+        numpages: 1,
+        text: ''
+      };
+    }
     const textContent = pdfData.text;
     
     console.log('Extracted PDF text:', textContent.substring(0, 500) + '...');

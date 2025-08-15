@@ -48,9 +48,11 @@ export async function createProject(projectData: any): Promise<any> {
   return response.json();
 }
 
-export async function uploadFile(projectId: string, file: File): Promise<any> {
+export async function uploadFiles(projectId: string, files: File[]): Promise<any> {
   const formData = new FormData();
-  formData.append('pdf', file);
+  files.forEach(file => {
+    formData.append('pdfs', file);
+  });
 
   const response = await fetch(`/api/projects/${projectId}/files`, {
     method: 'POST',
@@ -64,6 +66,11 @@ export async function uploadFile(projectId: string, file: File): Promise<any> {
   }
 
   return response.json();
+}
+
+// Keep the single file upload for backward compatibility
+export async function uploadFile(projectId: string, file: File): Promise<any> {
+  return uploadFiles(projectId, [file]);
 }
 
 export async function deleteFile(projectId: string, fileId: string): Promise<any> {

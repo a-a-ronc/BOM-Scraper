@@ -145,10 +145,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/projects/:id/files", requireAuth, upload.single('pdf'), async (req: Request, res: Response) => {
+  app.post("/api/projects/:id/files", requireAuth, upload.array('pdfs', 10), async (req: Request, res: Response) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        return res.status(400).json({ message: "No files uploaded" });
       }
 
       const project = await storage.getProject(req.params.id);
@@ -156,36 +157,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      // Parse the PDF document
-      const parsedData = await parseDocument(req.file.path);
+      const uploadedFiles: any[] = [];
+      let combinedParsedData: any = {};
+      let hasProjectMetadata = false;
 
-      const projectFile = await storage.createProjectFile({
-        projectId: project.id,
-        filename: req.file.originalname, // Store the original filename for display
-        filePath: req.file.path, // Store the filesystem path for parsing
-        fileType: req.file.mimetype,
-        pageCount: parsedData.pageCount || 1,
-        parsedData,
-      });
+      // Process each uploaded file
+      for (const file of files) {
+        try {
+          // Parse the PDF document
+          const parsedData = await parseDocument(file.path);
 
-      // If this is the first file and contains project metadata, update project
-      if (parsedData.customer || parsedData.drawingNo) {
-        const updatedProject = await storage.updateProject(project.id, {
-          customer: parsedData.customer || project.customer,
-          drawingNo: parsedData.drawingNo || project.drawingNo,
-          address: parsedData.address || project.address,
+          const projectFile = await storage.createProjectFile({
+            projectId: project.id,
+            filename: file.originalname, // Store the original filename for display
+            filePath: file.path, // Store the filesystem path for parsing
+            fileType: file.mimetype,
+            pageCount: parsedData.pageCount || 1,
+            parsedData,
+          });
+
+          uploadedFiles.push(projectFile);
+
+          // Combine parsed data from all files
+          if (parsedData.customer || parsedData.drawingNo || parsedData.address) {
+            combinedParsedData = {
+              customer: parsedData.customer || combinedParsedData.customer,
+              drawingNo: parsedData.drawingNo || combinedParsedData.drawingNo,
+              address: parsedData.address || combinedParsedData.address,
+              metadata: {
+                ...combinedParsedData.metadata,
+                ...parsedData.metadata,
+              },
+            };
+            hasProjectMetadata = true;
+          }
+        } catch (fileError: any) {
+          console.error(`Error processing file ${file.originalname}:`, fileError.message);
+          // Continue processing other files even if one fails
+          const projectFile = await storage.createProjectFile({
+            projectId: project.id,
+            filename: file.originalname,
+            filePath: file.path,
+            fileType: file.mimetype,
+            pageCount: 1,
+            parsedData: null,
+          });
+          uploadedFiles.push(projectFile);
+        }
+      }
+
+      // Update project with combined metadata if any was found
+      let updatedProject = project;
+      if (hasProjectMetadata) {
+        updatedProject = await storage.updateProject(project.id, {
+          customer: combinedParsedData.customer || project.customer,
+          drawingNo: combinedParsedData.drawingNo || project.drawingNo,
+          address: combinedParsedData.address || project.address,
           metadata: {
             ...project.metadata,
-            ...parsedData.metadata,
+            ...combinedParsedData.metadata,
           },
         });
-        
-        res.json({ file: projectFile, project: updatedProject });
-      } else {
-        res.json({ file: projectFile });
       }
-    } catch (error) {
-      res.status(500).json({ message: "Error processing file upload" });
+        
+      res.json({ files: uploadedFiles, project: updatedProject, filesUploaded: files.length });
+    } catch (error: any) {
+      console.error('Upload error:', error.message);
+      res.status(500).json({ message: "Error processing file upload: " + error.message });
     }
   });
 
