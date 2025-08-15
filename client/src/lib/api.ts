@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "./queryClient";
+import { apiRequest, queryClient } from "./queryClient";
 
 export interface User {
   id: string;
@@ -9,16 +9,24 @@ export interface User {
 // Authentication
 export async function login(email: string, password: string): Promise<{ user: User }> {
   const response = await apiRequest("POST", "/api/auth/login", { email, password });
-  return response.json();
+  const result = await response.json();
+  // Invalidate auth query to refresh user state
+  queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+  return result;
 }
 
 export async function register(email: string, password: string): Promise<{ user: User }> {
   const response = await apiRequest("POST", "/api/auth/register", { email, password });
-  return response.json();
+  const result = await response.json();
+  // Invalidate auth query to refresh user state
+  queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+  return result;
 }
 
 export async function logout(): Promise<void> {
   await apiRequest("POST", "/api/auth/logout");
+  // Invalidate auth query to clear user state
+  queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
 }
 
 export function useAuth() {

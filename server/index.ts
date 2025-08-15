@@ -17,7 +17,7 @@ const app = express();
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://*.replit.dev', 'https://*.replit.app']
-    : ['http://localhost:5000', 'http://127.0.0.1:5000'],
+    : true, // Allow all origins in development
   credentials: true
 }));
 
