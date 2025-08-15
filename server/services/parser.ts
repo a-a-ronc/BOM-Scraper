@@ -44,8 +44,10 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
     // Parse PDF content with proper error handling
     let pdfData: PDFData;
     try {
-      const pdfParse = (await import('pdf-parse')).default;
+      // Use require instead of dynamic import to avoid pdf-parse debug mode issues
+      const pdfParse = require('pdf-parse');
       pdfData = await pdfParse(pdfBuffer);
+      console.log('PDF parsing successful, text length:', pdfData.text.length);
     } catch (parseError: any) {
       console.error('PDF parsing error:', parseError.message);
       // Fallback: return basic structure with empty text if parsing fails
@@ -126,8 +128,10 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
         }
       }
     }
-    if (addressMatch) {
-      result.address = (addressMatch[1] || addressMatch[0]).trim();
+    if (addressMatch && addressMatch[1]) {
+      result.address = addressMatch[1].trim();
+    } else if (addressMatch && addressMatch[0]) {
+      result.address = addressMatch[0].trim();
     }
 
     // Extract total number of bays
@@ -150,9 +154,10 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
 
     // Extract top of load beam elevations
     const topOfLoadBeamElevations: string[] = [];
-    const loadBeamMatches = textContent.matchAll(/(?:Load\s*Beam|Beam)\s*(?:Elevation|Level|Height)\s*:?\s*([\d'"\s,-]+)/gi);
-    for (const match of loadBeamMatches) {
-      const elevations = match[1].match(/\d+'-\d+"/g);
+    const loadBeamPattern = /(?:Load\s*Beam|Beam)\s*(?:Elevation|Level|Height)\s*:?\s*([\d'"\s,-]+)/gi;
+    let loadBeamMatch;
+    while ((loadBeamMatch = loadBeamPattern.exec(textContent)) !== null) {
+      const elevations = loadBeamMatch[1].match(/\d+'-\d+"/g);
       if (elevations) {
         topOfLoadBeamElevations.push(...elevations);
       }
@@ -184,9 +189,10 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
 
     // Extract top of product elevations
     const topOfProductElevations: string[] = [];
-    const productElevMatches = textContent.matchAll(/(?:Product\s*)?(?:Top|Height)\s*(?:Elevation|Level)\s*:?\s*([\d'"\s,-]+)/gi);
-    for (const match of productElevMatches) {
-      const elevations = match[1].match(/\d+'-\d+"/g);
+    const productElevPattern = /(?:Product\s*)?(?:Top|Height)\s*(?:Elevation|Level)\s*:?\s*([\d'"\s,-]+)/gi;
+    let productElevMatch;
+    while ((productElevMatch = productElevPattern.exec(textContent)) !== null) {
+      const elevations = productElevMatch[1].match(/\d+'-\d+"/g);
       if (elevations) {
         topOfProductElevations.push(...elevations);
       }

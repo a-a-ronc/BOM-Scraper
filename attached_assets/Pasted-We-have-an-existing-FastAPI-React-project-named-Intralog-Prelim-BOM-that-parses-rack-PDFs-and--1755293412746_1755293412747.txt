@@ -1,0 +1,170 @@
+We have an existing FastAPI + React project named “Intralog Prelim → BOM” that parses rack PDFs and builds a BOM. Please implement/extend the following, keeping paid API calls minimal (use ChatGPT API only for conflict resolution).
+
+A) Parsing & config identification
+
+Identify configurations like R1, R2, T1, T2, … from both plan (TOP VIEW) and elevation pages. These appear in our PDFs alongside labels like “TOP VIEW” and “ELEVATION VIEW”, pallet dims 40"x48"x52", unit load 1,000 lbs, and height notes like 6'-0" Clear / 35'-4" To Lowest Hanging Truss. Use these strings in tests.
+
+Associate plan ↔ elevation by configuration code (e.g., plan “R1” pairs with elevation “R1”).
+
+For plan view: one bay of rack in R1 accounts for three sides of the rectangle (blue = uprights, orange = load beams). Use this to help estimate bay geometry for R1 plan instances (heuristic for bay width/span).
+
+For elevation view: count load beam levels by detecting repeated beam callouts/elevations; treat distinct height lines as levels.
+
+B) BOM rules (encode in YAML + unit-tested)
+
+Add/extend rules/default_rules.yaml and the rules engine to support these domain rules. Use inches internally; accept feet-inches strings.
+
+1) Wire decks per level (by beam span)
+
+If load beams are 8' long (96") → 2 wire decks per level.
+
+If load beams are 12' long (144") → 3 wire decks per level.
+
+Make this configurable:
+
+deck_panels_per_level:
+  - when: "beam_length_in == 96"
+    value: 2
+  - when: "beam_length_in == 144"
+    value: 3
+  - default: "ceil(beam_length_in / 48)"  # fallback
+
+2) Uprights, footplates, anchors
+
+Each upright has two footplates.
+
+Default: 2 anchors per footplate ⇒ 1 upright = 4 anchors.
+
+If later prelims say 4 anchors per footplate, double anchor count to 8 per upright.
+
+defaults:
+  anchors_per_footplate: 2
+formulas:
+  anchors_per_upright: "2 * anchors_per_footplate"
+
+3) Row spacers for double-row racks (height-tiered)
+
+If upright height < 13 ft → 1 spacer per back-to-back upright pair
+
+13–17 ft → 2 spacers
+
+17–26 ft → 3 spacers
+
+>26 ft → 4 spacers
+
+Spacer length = gap between double rows (e.g., 12" gap ⇒ 1' spacer; sometimes 2'). Model both quantity and length.
+
+row_spacers:
+  tiers:
+    - when: "upright_height_in < 156"        # 13*12
+      qty_per_pair: 1
+    - when: "upright_height_in >= 156 and upright_height_in <= 204"  # 17*12
+      qty_per_pair: 2
+    - when: "upright_height_in > 204 and upright_height_in <= 312"   # 26*12
+      qty_per_pair: 3
+    - when: "upright_height_in > 312"
+      qty_per_pair: 4
+  length_in:
+    from_gap_in: true   # set from parsed double-row gap (e.g., 12 => 12")
+
+4) Beam type/levels & quantities
+
+Levels = number of distinct beam elevations in the elevation view.
+
+Beams total per configuration = bays * levels * 2 (two beams per level per bay).
+
+Wire decks = bays * levels * deck_panels_per_level(beam_length_in).
+
+Uprights (single row) = bays + 1; for double row, uprights are shared back-to-back (calculate per geometry).
+
+Anchors = uprights * anchors_per_upright.
+
+If multiple beam lengths/types occur in the same configuration, compute per subgroup and sum.
+
+5) Beam “depth” via elevation delta
+
+From elevation, use top_of_load_beam_elevation - clear_height to infer beam section/depth class if that’s how your drawings encode it; otherwise store this as beam_section_hint. Keep the calculation pluggable (may refine later).
+
+C) Per-configuration & total outputs
+
+Store per-configuration results keyed by code (R1, R2, T1, …).
+
+For each config, produce quantities for:
+
+Uprights (count)
+
+Load beams by length/type (e.g., 8' beams, 12' beams)
+
+Wire decks (panel count)
+
+Anchor bolts (count)
+
+Row spacers by length (e.g., 12", 24")
+
+Excel export (/projects/{id}/bom/export?fmt=xlsx) with:
+
+Sheet “Configs”: one section per config (R1/R2/…), table with columns: Item Family | Part/Type | Length/Size | Qty | UoM | Notes.
+
+Sheet “Totals”: summed totals across all configs, same columns.
+
+Optional Sheet “Params”: parsed assumptions (beam_length_in, levels, anchors/footplate, row gap, upright height, etc.) to aid review.
+
+D) Code tasks
+
+rules_engine.py: add a small expression evaluator and match_first_true(rules) helper to implement the deck and row-spacer tier rules above.
+
+bom_builder.py:
+
+Iterate per configuration.
+
+Calculate bays from plan geometry; use the R1 heuristic (rectangle with 3 sides representing single bay) when explicit bay count is absent.
+
+Support mixed beam lengths per configuration (group lines by span/type).
+
+parser_pipeline:
+
+Extract double-row gap and upright height where present (plan/elevation).
+
+Normalize 8' → 96 in, 12' → 144 in.
+
+Persist per-configuration attributes needed by the rules.
+
+exporters.py: implement to_xlsx(lines_by_config, totals) using pandas/openpyxl.
+
+React UI: in ProjectDetail, show a tabs list of configurations with a mini-table per config and a Totals tab. Add an Export Excel button.
+
+E) Tests (add under /server/tests/)
+
+test_deck_rules.py
+
+96" beam ⇒ deck_panels_per_level = 2
+
+144" beam ⇒ deck_panels_per_level = 3
+
+test_anchor_math.py
+
+anchors_per_footplate=2 ⇒ upright anchors = 4
+
+anchors_per_footplate=4 ⇒ upright anchors = 8
+
+test_row_spacer_tiers.py
+
+12' height ⇒ 1 spacer/pair; 15' ⇒ 2; 20' ⇒ 3; 27' ⇒ 4; with spacer length pulled from gap (e.g., 12" or 24")
+
+test_config_aggregation.py
+
+Mock parsed config R1 with bays=10, levels=4, beam_length_in=96, anchors_per_footplate=2, upright_height_in=180, double_row_gap_in=12
+
+Expect beams = 10*4*2 = 80, wire decks = 10*4*2 = 80, uprights (single row) = 11, anchors = 11*4 = 44, row spacers (if double row present in mock) per tier rules.
+
+Also include fixture strings for parsing based on our drawings: “TOP VIEW”, “ELEVATION VIEW”, 40"x48"x52", 1,000 lbs, 6'-0" Clear.
+
+F) Notes / assumptions
+
+When plan view lacks explicit bay count, allow a user override in the UI; otherwise compute from drawn span / overall row length.
+
+Keep all thresholds overridable in YAML (anchors/footplate, panel width, row-spacer tiers).
+
+Vendor mapping remains a separate step; this change is vendor-agnostic.
+
+Deliverables: updated Python modules, YAML, React UI tweaks, tests, and working Excel export. The app should let me upload PDFs, see per-configuration BOMs (R1/R2/T1/…), and download an Excel with config tables and a totals sheet.
