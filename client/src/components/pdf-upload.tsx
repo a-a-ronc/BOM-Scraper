@@ -124,26 +124,22 @@ export default function PdfUpload({ projectId, files }: PdfUploadProps) {
                   <div className="w-full h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded mb-2 flex items-center justify-center">
                     <FileText className="w-8 h-8 text-slate-400" />
                   </div>
-                  <div className="text-xs text-slate-600">
-                    Page {file.pageCount || 1}/1
+                  <div className="flex justify-between items-center">
+                    <div className="text-xs text-slate-600">
+                      Page {file.pageCount || 1}/1
+                    </div>
+                    <button 
+                      className="text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 transform duration-150"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteFileMutation.mutate(file.id);
+                      }}
+                      disabled={deleteFileMutation.isPending}
+                      title="Delete file"
+                    >
+                      🗑️
+                    </button>
                   </div>
-                </div>
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
-                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                    <Eye className="w-3 h-3" />
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteFileMutation.mutate(file.id);
-                    }}
-                    disabled={deleteFileMutation.isPending}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
                 </div>
               </div>
             ))}

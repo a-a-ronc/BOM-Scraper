@@ -65,9 +65,8 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
     // Parse PDF content with proper error handling
     let pdfData: PDFData;
     try {
-      // Import pdf-parse dynamically but handle it properly
-      const pdfParseModule = await import('pdf-parse');
-      const pdfParse = pdfParseModule.default;
+      // Use eval to dynamically require pdf-parse to avoid ES module conflicts
+      const pdfParse = eval('require')('pdf-parse');
       pdfData = await pdfParse(pdfBuffer);
       console.log('PDF parsing successful, text length:', pdfData.text.length);
     } catch (parseError: any) {
