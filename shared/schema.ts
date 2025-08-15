@@ -14,15 +14,26 @@ export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   customer: text("customer"),
+  projectName: text("project_name"),
   address: text("address"),
   drawingNo: text("drawing_no"),
   revision: text("revision"),
   metadata: json("metadata").$type<{
+    // Basic specs
     palletSize?: string;
     loadCapacity?: number;
     clearHeight?: string;
     trussHeight?: string;
     views?: string[];
+    
+    // Rack configuration details
+    totalBays?: number;
+    totalEndRowUprights?: number;
+    topOfLoadBeamElevations?: string[];
+    depthOfLoadBeam?: string;
+    productLoad?: string;
+    productDimensions?: string;
+    topOfProductElevations?: string[];
   }>(),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

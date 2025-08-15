@@ -8,9 +8,16 @@ import {
   type BomItem, 
   type InsertBomItem,
   type AgentLog,
-  type InsertAgentLog
+  type InsertAgentLog,
+  users,
+  projects,
+  projectFiles,
+  bomItems,
+  agentLogs
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -68,6 +75,7 @@ export class MemStorage implements IStorage {
       id: "sample-project-id",
       name: "Falcon Fulfillment Rack System",
       customer: "Falcon Fulfillment",
+      projectName: "Falcon Fulfillment Rack System",
       address: "1065 Conestoga Pkwy, Shepherdsville, KY 40165",
       drawingNo: "D-241254-R-180",
       revision: "0",
@@ -119,6 +127,7 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       address: insertProject.address || null,
       customer: insertProject.customer || null,
+      projectName: insertProject.projectName || null,
       drawingNo: insertProject.drawingNo || null,
       revision: insertProject.revision || null,
       metadata: (insertProject.metadata as any) || null,
@@ -224,4 +233,124 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async getProject(id: string): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project || undefined;
+  }
+
+  async getProjectsByUser(userId: string): Promise<Project[]> {
+    return await db.select().from(projects).where(eq(projects.createdBy, userId));
+  }
+
+  async createProject(insertProject: InsertProject): Promise<Project> {
+    const [project] = await db
+      .insert(projects)
+      .values([insertProject])
+      .returning();
+    return project;
+  }
+
+  async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
+    const [project] = await db
+      .update(projects)
+      .set(updates)
+      .where(eq(projects.id, id))
+      .returning();
+    
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    return project;
+  }
+
+  async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
+    return await db.select().from(projectFiles).where(eq(projectFiles.projectId, projectId));
+  }
+
+  async getProjectFile(id: string): Promise<ProjectFile | undefined> {
+    const [file] = await db.select().from(projectFiles).where(eq(projectFiles.id, id));
+    return file || undefined;
+  }
+
+  async createProjectFile(insertFile: InsertProjectFile): Promise<ProjectFile> {
+    const [file] = await db
+      .insert(projectFiles)
+      .values(insertFile)
+      .returning();
+    return file;
+  }
+
+  async updateProjectFile(id: string, updates: Partial<ProjectFile>): Promise<ProjectFile> {
+    const [file] = await db
+      .update(projectFiles)
+      .set(updates)
+      .where(eq(projectFiles.id, id))
+      .returning();
+    
+    if (!file) {
+      throw new Error("Project file not found");
+    }
+    return file;
+  }
+
+  async deleteProjectFile(id: string): Promise<void> {
+    await db.delete(projectFiles).where(eq(projectFiles.id, id));
+  }
+
+  async getBomItemsByProject(projectId: string, vendor?: string): Promise<BomItem[]> {
+    return await db.select().from(bomItems).where(
+      vendor 
+        ? and(eq(bomItems.projectId, projectId), eq(bomItems.vendor, vendor))
+        : eq(bomItems.projectId, projectId)
+    );
+  }
+
+  async createBomItem(insertItem: InsertBomItem): Promise<BomItem> {
+    const [item] = await db
+      .insert(bomItems)
+      .values(insertItem)
+      .returning();
+    return item;
+  }
+
+  async clearBomItems(projectId: string): Promise<void> {
+    await db.delete(bomItems).where(eq(bomItems.projectId, projectId));
+  }
+
+  async getAgentLogsByProject(projectId: string): Promise<AgentLog[]> {
+    return await db
+      .select()
+      .from(agentLogs)
+      .where(eq(agentLogs.projectId, projectId))
+      .orderBy(desc(agentLogs.createdAt));
+  }
+
+  async createAgentLog(insertLog: InsertAgentLog): Promise<AgentLog> {
+    const [log] = await db
+      .insert(agentLogs)
+      .values(insertLog)
+      .returning();
+    return log;
+  }
+}
+
+export const storage = new DatabaseStorage();
