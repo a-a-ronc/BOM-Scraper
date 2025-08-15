@@ -259,8 +259,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Re-parse all files
       for (const file of files) {
-        // Use the stored filepath for parsing, fallback to filename if no filePath
-        const filePath = (file as any).filePath || file.filename;
+        // Use the stored filepath for parsing, fallback to uploads directory + filename
+        const filePath = (file as any).filePath || `uploads/${file.filename}`;
+        console.log(`Parsing file: ${file.filename} at path: ${filePath}`);
         const parsedData = await parseDocument(filePath);
         combinedParsedData = { ...combinedParsedData, ...parsedData };
         
