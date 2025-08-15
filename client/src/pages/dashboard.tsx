@@ -13,7 +13,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { logout, createProject } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
-import { Plus, FileText, Calendar, User, LogOut } from "lucide-react";
+import { Plus, FileText, Calendar, User, LogOut, Upload, Zap, Download } from "lucide-react";
 
 const createProjectSchema = z.object({
   name: z.string().min(1, "Project name is required"),
@@ -217,20 +217,115 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (projects as any[]).length === 0 ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No projects yet</h3>
-              <p className="text-slate-600 mb-4">Get started by creating your first rack engineering project</p>
-              <Button 
-                onClick={() => setShowCreateDialog(true)}
-                className="bg-primary-600 hover:bg-primary-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Project
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="space-y-8">
+            {/* Welcome Section */}
+            <Card className="bg-gradient-to-r from-primary-50 to-blue-50 border-primary-200">
+              <CardContent className="py-8">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="w-8 h-8 text-primary-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-primary-900 mb-2">Welcome to Intralog BOM</h2>
+                  <p className="text-primary-700 mb-6 max-w-2xl mx-auto">
+                    Transform your rack engineering drawings into comprehensive Bills of Materials with automated vendor mapping and seismic calculations
+                  </p>
+                  <Button 
+                    onClick={() => setShowCreateDialog(true)}
+                    className="bg-primary-600 hover:bg-primary-700 text-lg px-8 py-3"
+                    size="lg"
+                  >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Start Your First Project
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Process Flow */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl">How It Works</CardTitle>
+                <p className="text-slate-600">Follow these simple steps to generate your rack BOM</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-4 gap-6">
+                  <div className="text-center">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <span className="text-emerald-600 font-bold">1</span>
+                    </div>
+                    <h4 className="font-semibold text-slate-900 mb-2">Upload Drawings</h4>
+                    <p className="text-sm text-slate-600">Upload your rack elevation and top view PDF drawings</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <span className="text-blue-600 font-bold">2</span>
+                    </div>
+                    <h4 className="font-semibold text-slate-900 mb-2">Extract Data</h4>
+                    <p className="text-sm text-slate-600">AI scans for customer info, dimensions, and rack specifications</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <span className="text-purple-600 font-bold">3</span>
+                    </div>
+                    <h4 className="font-semibold text-slate-900 mb-2">Generate BOM</h4>
+                    <p className="text-sm text-slate-600">Calculate quantities and map to vendor catalogs</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <span className="text-orange-600 font-bold">4</span>
+                    </div>
+                    <h4 className="font-semibold text-slate-900 mb-2">Export & Quote</h4>
+                    <p className="text-sm text-slate-600">Download BOMs and prepare seismic calculations</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Sample Project */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Try with Sample Project</CardTitle>
+                    <p className="text-slate-600 mt-1">Explore the full workflow with pre-loaded Falcon Fulfillment data</p>
+                  </div>
+                  <Badge variant="secondary">Demo</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-slate-50 rounded-lg p-4 mb-4">
+                  <div className="grid md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-slate-900">Customer:</span>
+                      <div className="text-slate-600">Falcon Fulfillment</div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-slate-900">Drawing:</span>
+                      <div className="font-mono text-slate-600">D-241254-R-180</div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-slate-900">Load:</span>
+                      <div className="text-slate-600">1,000 lbs | 40"×48"×52"</div>
+                    </div>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    // Create sample project with pre-filled data
+                    createProjectMutation.mutate({
+                      name: "Falcon Fulfillment Rack System",
+                      customer: "Falcon Fulfillment", 
+                      address: "1065 Conestoga Pkwy, Shepherdsville, KY 40165"
+                    });
+                  }}
+                  disabled={createProjectMutation.isPending}
+                >
+                  {createProjectMutation.isPending ? "Creating..." : "Create Sample Project"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {(projects as any[]).map((project: any) => (

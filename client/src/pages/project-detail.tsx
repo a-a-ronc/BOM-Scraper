@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { reparseProject, generateBOM, exportBOM } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
-import { ChevronLeft, RefreshCw, Download, CheckCircle } from "lucide-react";
+import { ChevronLeft, RefreshCw, Download, CheckCircle, Upload, Zap } from "lucide-react";
 import PdfUpload from "@/components/pdf-upload";
 import MetadataPanel from "@/components/metadata-panel";
 import BomTable from "@/components/bom-table";
@@ -144,6 +144,73 @@ export default function ProjectDetail() {
           </div>
         </div>
 
+        {/* Progress Steps */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">Project Workflow</h2>
+            <div className="text-sm text-slate-600">
+              Step {(project as any).files?.length > 0 ? ((project as any).bomItems?.length > 0 ? 4 : 3) : ((project as any).customer ? 2 : 1)} of 4
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-4">
+            <div className={`flex items-center p-4 rounded-lg border-2 ${
+              true ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+            }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                true ? 'bg-emerald-500 text-white' : 'bg-slate-300 text-slate-600'
+              }`}>
+                <span className="text-sm font-semibold">1</span>
+              </div>
+              <div>
+                <div className="font-medium text-slate-900">Create Project</div>
+                <div className="text-xs text-slate-600">Setup basic info</div>
+              </div>
+            </div>
+            
+            <div className={`flex items-center p-4 rounded-lg border-2 ${
+              (project as any).files?.length > 0 ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-slate-50'
+            }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                (project as any).files?.length > 0 ? 'bg-blue-500 text-white' : 'bg-slate-300 text-slate-600'
+              }`}>
+                <span className="text-sm font-semibold">2</span>
+              </div>
+              <div>
+                <div className="font-medium text-slate-900">Upload Drawings</div>
+                <div className="text-xs text-slate-600">PDF rack plans</div>
+              </div>
+            </div>
+            
+            <div className={`flex items-center p-4 rounded-lg border-2 ${
+              (project as any).customer ? 'border-purple-200 bg-purple-50' : 'border-slate-200 bg-slate-50'
+            }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                (project as any).customer ? 'bg-purple-500 text-white' : 'bg-slate-300 text-slate-600'
+              }`}>
+                <span className="text-sm font-semibold">3</span>
+              </div>
+              <div>
+                <div className="font-medium text-slate-900">Extract Data</div>
+                <div className="text-xs text-slate-600">Parse specifications</div>
+              </div>
+            </div>
+            
+            <div className={`flex items-center p-4 rounded-lg border-2 ${
+              (project as any).bomItems?.length > 0 ? 'border-orange-200 bg-orange-50' : 'border-slate-200 bg-slate-50'
+            }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                (project as any).bomItems?.length > 0 ? 'bg-orange-500 text-white' : 'bg-slate-300 text-slate-600'
+              }`}>
+                <span className="text-sm font-semibold">4</span>
+              </div>
+              <div>
+                <div className="font-medium text-slate-900">Generate BOM</div>
+                <div className="text-xs text-slate-600">Calculate materials</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column - Documents & Metadata */}
           <div className="lg:col-span-1 space-y-6">
@@ -152,6 +219,70 @@ export default function ProjectDetail() {
 
             {/* Extracted Metadata */}
             <MetadataPanel project={project} />
+            
+            {/* Next Steps Guide */}
+            {!(project as any).files?.length ? (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardHeader>
+                  <CardTitle className="text-blue-900 flex items-center">
+                    <Upload className="w-5 h-5 mr-2" />
+                    Next: Upload Your Drawings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-blue-800 text-sm mb-3">
+                    Upload your rack elevation and top view PDF drawings to extract project specifications automatically.
+                  </p>
+                  <ul className="text-xs text-blue-700 space-y-1">
+                    <li>• Supported: PDF files up to 10MB</li>
+                    <li>• Best results: Clear, high-resolution drawings</li>
+                    <li>• Multiple files: Upload both views for complete analysis</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            ) : !(project as any).customer ? (
+              <Card className="border-purple-200 bg-purple-50">
+                <CardHeader>
+                  <CardTitle className="text-purple-900 flex items-center">
+                    <Zap className="w-5 h-5 mr-2" />
+                    Next: Parse Documents
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-purple-800 text-sm mb-3">
+                    Click "Re-Parse Documents" to extract customer information and rack specifications from your uploaded PDFs.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : !(project as any).bomItems?.length ? (
+              <Card className="border-orange-200 bg-orange-50">
+                <CardHeader>
+                  <CardTitle className="text-orange-900 flex items-center">
+                    <Download className="w-5 h-5 mr-2" />
+                    Next: Generate BOM
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-orange-800 text-sm mb-3">
+                    Generate Bills of Materials for all vendors (Interlake, Hannibal, Stow) to compare pricing and specifications.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-emerald-200 bg-emerald-50">
+                <CardHeader>
+                  <CardTitle className="text-emerald-900 flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    Project Complete!
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-emerald-800 text-sm">
+                    Your BOM is ready! Export the data or start seismic preliminary calculations.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Right Column - BOM & Vendor Management */}
